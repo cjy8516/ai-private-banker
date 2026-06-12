@@ -1,153 +1,264 @@
 "use client"
 
-import { ArrowRight, Minus, Plus, RefreshCw } from "lucide-react"
+import { useEffect } from "react"
+import { ArrowRight, RotateCcw } from "lucide-react"
+import {
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts"
 import { PageShell, PageHeader } from "@/components/pages/page-shell"
-
-type Action = "keep" | "reduce" | "replace"
-
-const moves: {
-  action: Action
-  ticker: string
-  name: string
-  from: string
-  to: string
-  note: string
-}[] = [
-  {
-    action: "keep",
-    ticker: "VTI",
-    name: "Total US Market",
-    from: "15%",
-    to: "30%",
-    note: "Your cleanest, lowest-cost core. We let it carry the US sleeve outright.",
-  },
-  {
-    action: "reduce",
-    ticker: "VOO / QQQ",
-    name: "S&P 500 + Nasdaq",
-    from: "60%",
-    to: "0%",
-    note: "Folded into VTI. Holding all three was paying three times for one exposure.",
-  },
-  {
-    action: "replace",
-    ticker: "ARKK",
-    name: "Active innovation",
-    from: "9%",
-    to: "0%",
-    note: "High fee, high turnover, and concentrated in bets you already hold indirectly.",
-  },
-  {
-    action: "replace",
-    ticker: "AAPL",
-    name: "Single stock",
-    from: "8%",
-    to: "0%",
-    note: "Idiosyncratic risk with no diversification benefit inside an ETF portfolio.",
-  },
-  {
-    action: "keep",
-    ticker: "VXUS",
-    name: "Total International",
-    from: "0%",
-    to: "25%",
-    note: "Adds the ex-US half of the world your portfolio was missing entirely.",
-  },
-  {
-    action: "keep",
-    ticker: "BND",
-    name: "Total Bond Market",
-    from: "0%",
-    to: "12%",
-    note: "A ballast sized to your balanced risk tolerance and horizon.",
-  },
-]
-
-const actionMeta: Record<Action, { label: string; icon: typeof Plus; cls: string }> = {
-  keep: { label: "Keep", icon: Plus, cls: "text-accent" },
-  reduce: { label: "Reduce", icon: Minus, cls: "text-muted-foreground" },
-  replace: { label: "Replace", icon: RefreshCw, cls: "text-destructive" },
-}
-
-const alternatives = [
-  {
-    q: "Why not just hold VOO and call it done?",
-    a: "It is excellent — and entirely US large-cap. On its own it leaves you exposed to a single market's valuation cycle, with no international or fixed-income offset.",
-  },
-  {
-    q: "Why not a target-date or all-in-one fund?",
-    a: "Convenient, but opaque and slightly pricier. With three or four index funds you keep the same simplicity while seeing — and controlling — exactly what you own.",
-  },
-  {
-    q: "Why not chase the high-growth sleeve?",
-    a: "You already hold the winners through the broad index. Layering ARKK on top concentrates risk without adding genuinely new exposure.",
-  },
-]
+import { useApp } from "@/lib/store"
+import {
+  buildPortfolioBreakdown,
+  buildPortfolioBacktest,
+  type BreakdownPoint,
+  portfolioColors,
+  portfolioSummaryStats,
+} from "@/lib/portfolio-visuals"
 
 export function RecommendationPage({ onContinue }: { onContinue: () => void }) {
+  const {
+    result,
+    adjustedPortfolio,
+    activePortfolio,
+    updateRecommendedWeight,
+    resetRecommendedPortfolio,
+    generateRecommendation,
+    isPending,
+    lastAnalysisMode,
+    isDemoMode,
+  } = useApp()
+
+  useEffect(() => {
+    if (!result && !isPending) {
+      void generateRecommendation()
+    }
+  }, [generateRecommendation, isPending, result])
+
+  if (!result) {
+    return (
+      <PageShell>
+        <PageHeader
+          eyebrow="Recommendation"
+          title="Building your ETF lineup."
+          intro="Méridian is turning the client profile into a clean allocation. If you have current holdings, run diagnosis first and this page will compare against them."
+        />
+        <div className="mt-14 h-1 overflow-hidden rounded-full bg-border">
+          <div className="h-full w-1/2 animate-pulse rounded-full bg-primary" />
+        </div>
+      </PageShell>
+    )
+  }
+
+  const basePortfolio = result.currentHoldings.length > 0 ? result.currentHoldings : result.portfolio
+  const portfolio = adjustedPortfolio.length > 0 ? adjustedPortfolio : activePortfolio
+  const chartData = portfolio.map((line, index) => ({
+    ...line,
+    fill: portfolioColors[index % portfolioColors.length],
+  }))
+  const stats = portfolioSummaryStats(portfolio)
+  const backtest = buildPortfolioBacktest(basePortfolio, portfolio)
+  const assetBreakdown = buildPortfolioBreakdown(portfolio, "assetClass")
+  const regionBreakdown = buildPortfolioBreakdown(portfolio, "region")
+  const styleBreakdown = buildPortfolioBreakdown(portfolio, "style")
+
   return (
     <PageShell>
       <PageHeader
         eyebrow="Recommendation"
-        title="A cleaner, more intentional lineup"
-        intro="Four funds doing four distinct jobs — broad US, international, bonds, and ballast — matched to your balanced, long-horizon profile."
+        title={result.headline}
+        intro={result.clientSummary}
       />
 
-      <div className="divide-y divide-border border-y border-border">
-        {moves.map((m) => {
-          const meta = actionMeta[m.action]
-          const Icon = meta.icon
-          return (
-            <div key={m.ticker} className="flex items-start gap-5 py-5">
-              <span className={`mt-0.5 inline-flex items-center gap-1.5 text-xs uppercase tracking-wider ${meta.cls} w-24 shrink-0`}>
-                <Icon className="h-3.5 w-3.5" />
-                {meta.label}
-              </span>
-              <div className="flex-1">
-                <div className="flex items-baseline gap-2">
-                  <span className="font-medium text-foreground">{m.ticker}</span>
-                  <span className="text-sm text-muted-foreground">{m.name}</span>
-                </div>
-                <p className="mt-1 text-[15px] leading-relaxed text-muted-foreground">
-                  {m.note}
-                </p>
-              </div>
-              <div className="hidden shrink-0 items-center gap-2 pt-0.5 text-sm tabular-nums sm:flex">
-                <span className="text-muted-foreground line-through">{m.from}</span>
-                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="font-medium text-foreground">{m.to}</span>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      <section className="mt-12">
-        <h2 className="font-serif text-2xl font-light text-foreground">
-          Why this is better
-        </h2>
-        <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-          You move from seven overlapping positions to four deliberate ones.
-          Blended fees fall from roughly 0.38% to under 0.05%, single-name risk
-          disappears, and for the first time the portfolio holds the whole world
-          and a genuine bond ballast — without giving up a basis point of the
-          US growth you came for.
+      {isDemoMode ? (
+        <p className="mb-8 border-y border-border py-3 text-sm text-muted-foreground">
+          Demo mode is using local portfolio logic, so this screen remains presentable even without API credits.
         </p>
+      ) : null}
+
+      <section className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr]">
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+            Allocation
+          </p>
+          <div className="mt-5 h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={chartData}
+                  dataKey="weight"
+                  nameKey="ticker"
+                  innerRadius={72}
+                  outerRadius={118}
+                  paddingAngle={2}
+                  stroke="var(--background)"
+                  strokeWidth={3}
+                >
+                  {chartData.map((entry) => (
+                    <Cell key={entry.ticker} fill={entry.fill} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(value: number, _name, item) => [
+                    `${value.toFixed(1)}%`,
+                    item.payload.ticker,
+                  ]}
+                  contentStyle={{
+                    border: "1px solid var(--border)",
+                    borderRadius: 8,
+                    background: "var(--card)",
+                    color: "var(--foreground)",
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border text-sm">
+            <Stat label="Equity" value={`${stats.equity}%`} />
+            <Stat label="Defensive" value={`${stats.defensive}%`} />
+            <Stat label="Funds" value={String(stats.funds)} />
+            <Stat label="Blended fee" value={`${stats.fee}%`} />
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+              Backtest path
+            </p>
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-[#c8c0b4]" />
+                {lastAnalysisMode === "review" ? "Current" : "Proposal"}
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-[#3a3128]" />
+                Adjusted
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-[#66705d]" />
+                Benchmark
+              </span>
+            </div>
+          </div>
+          <div className="mt-5 h-72 border-y border-border py-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={backtest}>
+                <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+                <YAxis
+                  domain={["dataMin - 2", "dataMax + 2"]}
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fontSize: 11 }}
+                  width={34}
+                />
+                <Tooltip
+                  formatter={(value: number) => value.toFixed(1)}
+                  contentStyle={{
+                    border: "1px solid var(--border)",
+                    borderRadius: 8,
+                    background: "var(--card)",
+                    color: "var(--foreground)",
+                  }}
+                />
+                <Line type="monotone" dataKey="base" dot={false} stroke="#c8c0b4" strokeWidth={2} />
+                <Line type="monotone" dataKey="adjusted" dot={false} stroke="#3a3128" strokeWidth={2.5} />
+                <Line
+                  type="monotone"
+                  dataKey="benchmark"
+                  dot={false}
+                  stroke="#66705d"
+                  strokeDasharray="4 4"
+                  strokeWidth={2}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
       </section>
 
-      <section className="mt-12">
-        <h2 className="font-serif text-2xl font-light text-foreground">
-          Why not the obvious alternatives
-        </h2>
+      <section className="mt-14 grid gap-8 border-y border-border py-8 lg:grid-cols-3">
+        <Breakdown title="Asset class" data={assetBreakdown} />
+        <Breakdown title="Region" data={regionBreakdown} />
+        <Breakdown title="Role" data={styleBreakdown} />
+      </section>
+
+      <section className="mt-14">
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="font-serif text-2xl font-light text-foreground">
+            Adjust the proposal
+          </h2>
+          <button
+            onClick={resetRecommendedPortfolio}
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Reset
+          </button>
+        </div>
+
         <div className="mt-6 divide-y divide-border border-y border-border">
-          {alternatives.map((x) => (
-            <div key={x.q} className="py-5">
-              <p className="font-serif text-base italic text-foreground">{x.q}</p>
-              <p className="mt-2 text-[15px] leading-relaxed text-muted-foreground">
-                {x.a}
-              </p>
+          {portfolio.map((line, index) => (
+            <div key={line.ticker} className="grid gap-4 py-5 md:grid-cols-[1fr_220px] md:items-center">
+              <div className="flex items-start gap-4">
+                <span
+                  className="mt-1 h-3 w-3 shrink-0 rounded-full"
+                  style={{ backgroundColor: portfolioColors[index % portfolioColors.length] }}
+                />
+                <div>
+                  <div className="flex flex-wrap items-baseline gap-2">
+                    <span className="font-medium text-foreground">{line.ticker}</span>
+                    <span className="text-sm text-muted-foreground">{line.name}</span>
+                  </div>
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                    {line.why}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="0"
+                  max="60"
+                  step="1"
+                  value={line.weight}
+                  onChange={(event) => updateRecommendedWeight(line.ticker, Number(event.target.value))}
+                  className="w-full accent-[#3a3128]"
+                  aria-label={`${line.ticker} allocation`}
+                />
+                <span className="w-14 text-right text-sm tabular-nums text-foreground">
+                  {line.weight.toFixed(1)}%
+                </span>
+              </div>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="mt-12 grid gap-8 border-y border-border py-8 md:grid-cols-2">
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+            Why this
+          </p>
+          <p className="mt-3 text-[15px] leading-relaxed text-foreground">
+            {result.whyThisPortfolio}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+            Watch-outs
+          </p>
+          <p className="mt-3 text-[15px] leading-relaxed text-foreground">
+            {result.risks[0]}
+          </p>
         </div>
       </section>
 
@@ -156,10 +267,47 @@ export function RecommendationPage({ onContinue }: { onContinue: () => void }) {
           onClick={onContinue}
           className="group inline-flex items-center gap-2 text-sm font-medium text-foreground transition-colors hover:text-accent"
         >
-          Stress-test a scenario
+          Stress-test this portfolio
           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
         </button>
       </div>
     </PageShell>
+  )
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-card p-4">
+      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+      <p className="mt-2 font-serif text-xl text-foreground">{value}</p>
+    </div>
+  )
+}
+
+function Breakdown({ title, data }: { title: string; data: BreakdownPoint[] }) {
+  return (
+    <div>
+      <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+        {title}
+      </p>
+      <div className="mt-5 space-y-4">
+        {data.map((item) => (
+          <div key={item.name}>
+            <div className="flex items-center justify-between gap-4 text-sm">
+              <span className="text-foreground">{item.name}</span>
+              <span className="tabular-nums text-muted-foreground">
+                {item.weight.toFixed(1)}%
+              </span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-border">
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${item.weight}%`, backgroundColor: item.fill }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }

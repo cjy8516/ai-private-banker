@@ -1,15 +1,5 @@
-import { Analytics } from '@vercel/analytics/next'
 import type { Metadata } from 'next'
-import { Geist, Newsreader } from 'next/font/google'
 import './globals.css'
-
-const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
-const newsreader = Newsreader({
-  variable: '--font-newsreader',
-  subsets: ['latin'],
-  style: ['normal', 'italic'],
-  weight: ['300', '400', '500'],
-})
 
 export const metadata: Metadata = {
   title: 'Méridian — An AI private banker for ETF investors',
@@ -41,14 +31,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${newsreader.variable} bg-background`}
-    >
-      <body className="font-sans antialiased">
-        {children}
-        {process.env.NODE_ENV === 'production' && <Analytics />}
-      </body>
+    <html lang="en" className="bg-background">
+      <body className="font-sans antialiased">{children}</body>
     </html>
   )
 }

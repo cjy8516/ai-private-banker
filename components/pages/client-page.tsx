@@ -5,8 +5,14 @@ import { ArrowRight, Pencil, Check } from "lucide-react"
 import { questions, useApp } from "@/lib/store"
 import { PageShell, PageHeader } from "@/components/pages/page-shell"
 
-export function ClientPage({ onContinue }: { onContinue: () => void }) {
-  const { profile, setField } = useApp()
+export function ClientPage({
+  onDiagnose,
+  onRecommend,
+}: {
+  onDiagnose: () => void
+  onRecommend: () => void
+}) {
+  const { profile, setField, generateRecommendation, isPending, error } = useApp()
   const answered = questions.filter((q) => profile[q.key].trim() !== "").length
   const [editing, setEditing] = useState<string | null>(null)
 
@@ -23,13 +29,25 @@ export function ClientPage({ onContinue }: { onContinue: () => void }) {
           <span className="font-medium text-foreground">{answered}</span> of{" "}
           {questions.length} answered
         </p>
-        <button
-          onClick={onContinue}
-          className="group inline-flex items-center gap-2 text-sm font-medium text-foreground transition-colors hover:text-accent"
-        >
-          Continue to diagnosis
-          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-        </button>
+        <div className="flex items-center gap-5">
+          <button
+            onClick={onDiagnose}
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            I already have a portfolio
+          </button>
+          <button
+            onClick={async () => {
+              const ok = await generateRecommendation()
+              if (ok) onRecommend()
+            }}
+            disabled={isPending}
+            className="group inline-flex items-center gap-2 text-sm font-medium text-foreground transition-colors hover:text-accent disabled:opacity-50"
+          >
+            {isPending ? "Preparing recommendation" : "Generate recommendation"}
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          </button>
+        </div>
       </div>
 
       <dl className="divide-y divide-border">
@@ -101,6 +119,12 @@ export function ClientPage({ onContinue }: { onContinue: () => void }) {
           )
         })}
       </dl>
+
+      {error ? (
+        <p className="mt-6 text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
     </PageShell>
   )
 }

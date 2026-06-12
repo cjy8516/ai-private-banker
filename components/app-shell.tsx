@@ -6,10 +6,11 @@ import {
   Stethoscope,
   Sparkles,
   CloudLightning,
+  PlayCircle,
   Menu,
   X,
 } from "lucide-react"
-import type { AppView } from "@/lib/store"
+import { useApp, type AppView } from "@/lib/store"
 import { Wordmark } from "@/components/wordmark"
 import { ClientPage } from "@/components/pages/client-page"
 import { DiagnosisPage } from "@/components/pages/diagnosis-page"
@@ -26,6 +27,7 @@ const nav: { key: AppView; label: string; icon: typeof UserRound; desc: string }
 export function AppShell() {
   const [view, setView] = useState<AppView>("client")
   const [mobileOpen, setMobileOpen] = useState(false)
+  const { loadDemo, isDemoMode } = useApp()
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -78,6 +80,24 @@ export function AppShell() {
         </nav>
 
         <div className="border-t border-sidebar-border p-4">
+          <button
+            onClick={() => {
+              loadDemo()
+              setView("diagnosis")
+              setMobileOpen(false)
+            }}
+            className="mb-4 flex w-full items-center gap-3 rounded-lg border border-sidebar-border px-3 py-2.5 text-left text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
+          >
+            <PlayCircle className="h-[18px] w-[18px] text-accent" />
+            <span className="flex flex-col">
+              <span className="text-sm font-medium leading-tight">
+                {isDemoMode ? "Demo loaded" : "Load demo"}
+              </span>
+              <span className="text-[11px] leading-tight text-muted-foreground">
+                Safe fallback story
+              </span>
+            </span>
+          </button>
           <div className="flex items-center gap-3 rounded-lg px-2 py-1.5">
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
               AM
@@ -110,7 +130,12 @@ export function AppShell() {
         </div>
 
         <main className="flex-1">
-          {view === "client" && <ClientPage onContinue={() => setView("diagnosis")} />}
+          {view === "client" && (
+            <ClientPage
+              onDiagnose={() => setView("diagnosis")}
+              onRecommend={() => setView("recommendation")}
+            />
+          )}
           {view === "diagnosis" && <DiagnosisPage onContinue={() => setView("recommendation")} />}
           {view === "recommendation" && <RecommendationPage onContinue={() => setView("scenario")} />}
           {view === "scenario" && <ScenarioPage />}
